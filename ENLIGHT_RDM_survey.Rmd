@@ -1,0 +1,267 @@
+---
+title: "ENLIGHT - Focus on FAIR & RDM"
+author: "Birgit Schmidt"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    code_folding: hide
+
+---
+
+# Results from the survey on data management and FAIR data
+
+In this section, we summarise further information on RDM which was collected in November 2021 in advance of a FAIRsFAIR event at which ENLIGHT RISE’s activities and plans were presented. We investigated in more detail the status of RDM policies at ENLIGHT institutions as well as if they cover core aspects such as FAIRness and data sharing.
+
+There were eleven responses to the survey on data management and FAIR data. In two instances there were two responses, in these cases the response which provided more detailed information was used. All respondent names were removed in the final dataset. 
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+# Results of the FAIR & RDM survey
+```{r , cache = TRUE}
+# packages <- c("tidyverse", "RColorBrewer", "wesanderson")
+# if (!require(packages)) install.packages(packages[!require(packages)])
+if (!require(tidyverse)) install.packages('tidyverse')
+if (!require(RColorBrewer)) install.packages('RColorBrewer')
+if (!require(wesanderson)) install.packages('wesanderson')
+library(tidyverse)
+library(RColorBrewer)
+library(wesanderson)
+
+# Setting cache=TRUE, therefore all figures can be found in the sub folder ENLIGHT_RDM_survey_files / figure-html
+
+# read data, respond names have been removed
+# for two institutions there are two responses, that is for some plots only one will be considered 
+FAIR_survey_raw <- read_csv2("data/ENLIGHT_Focus_on_FAIR_20211116.csv")
+
+names(FAIR_survey_raw)
+#  [1] "Zeitstempel"          
+#  [2] "Your institution"          
+#  [3] "Contact person"          
+#  [4] "Does your institution have a research data policy?"           
+#  [5] "If applicable, please provide the URL of your institutional data policy"         
+#  [6] "Does the policy include a statement on data sharing and/or open data?"        
+#  [7] "Does the policy include a statement on FAIR data?" 
+#  [8] "Which research data services are offered at your institution?"  
+#  [9] "What data management staff roles are currently in place at your institution?"   
+# [10] "What actions are currently taken for fostering skills and capacities for RDM and making data FAIR?"
+# [11] "What are currently your main challenges related to implementing FAIR?"  
+
+# shorten variable names
+FAIR_survey <- FAIR_survey_raw %>% rename(institution = "Your institution", policy = "Does your institution have a research data policy?", policy_URL = "If applicable, please provide the URL of your institutional data policy", statement_sharing = "Does the policy include a statement on data sharing and/or open data?", statement_fair = "Does the policy include a statement on FAIR data?", rdm_services = "Which research data services are offered at your institution?", rdm_staff = "What data management staff roles are currently in place at your institution?", rdm_actions = "What actions are currently taken for fostering skills and capacities for RDM and making data FAIR?", fair_challenges =  "What are currently your main challenges related to implementing FAIR?")
+
+# select one answer per institution for the multiple choice questions (the one which fits best, comments via the raw data)
+# FAIR_survey <- FAIR_survey %>% filter(!is.na(contact))
+# RUG
+x_RUG <- FAIR_survey %>% filter(institution == "RUG") %>% select(Zeitstempel)
+# EPV/EHU
+x_EPV <- FAIR_survey %>% filter(institution == "EPV/EHU") %>% select(Zeitstempel)
+
+FAIR_survey <- FAIR_survey %>% filter(!(Zeitstempel %in% c("11/8/2021 13:50:37", "11/12/2021 13:33:11")))
+
+# number of responses, after removal of second response
+n <- nrow(FAIR_survey)
+
+
+# unnest multiple choice variables
+# "statement_sharing" "statement_fair"    "rdm_services"     "rdm_staff"         
+# "rdm_actions"
+
+# function does not work yet
+# fct_mltpc <- function(.data, id, var){
+#   .data %>% select(id, var) %>% 
+#     transform(var = strsplit(var, ",")) %>% 
+#     unnest(var) %>% 
+#     transform(var = str_trim(var, side = "both"))
+# }
+
+
+
+# statement_sharing
+FAIR_survey_st_sharing <- FAIR_survey %>%
+  select(Zeitstempel, statement_sharing) %>% 
+  transform(statement_sharing = strsplit(statement_sharing, ",")) %>% 
+  unnest(statement_sharing)  %>% 
+  transform(statement_sharing = str_trim(statement_sharing, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!(statement_sharing %in% c(NA, "We are in a preliminary phase of a project for the creation of a data repository."))) %>% 
+  mutate(statement_sharing = factor(statement_sharing))
+
+FAIR_survey_st_sharing <- FAIR_survey_st_sharing %>% 
+  filter(!(statement_sharing %in% c(NA, 'No explicit reference to the "as open as possible..." principle'))) %>% 
+  mutate(statement_sharing = recode_factor(statement_sharing, "although reference is made to potential restrictions on data sharing that might be needed" = "Reference to potential restrictions on sharing"))
+
+# statement_fair
+FAIR_survey_st_fair <- FAIR_survey %>% 
+  select(Zeitstempel, statement_fair) %>% 
+  transform(statement_fair = strsplit(statement_fair, ",")) %>% 
+  unnest(statement_fair)  %>% 
+  transform(statement_fair = str_trim(statement_fair, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(statement_fair)) %>% 
+  mutate(statement_fair = factor(statement_fair))
+
+FAIR_survey_st_fair <- FAIR_survey_st_fair %>% 
+  filter(!(statement_fair %in% c(NA, "but it kind of aligns with FAIR (as evaluated by FAIRsFAIR policy enhancement support review)"))) %>% 
+  mutate(statement_fair = recode_factor(statement_fair, "No explicit mention of FAIR in the current policy" = "No explicit mention but kind of aligns with FAIR"))
+  
+
+# rdm_services - keep policy as potential fill variable 
+FAIR_survey_rdm_services <- FAIR_survey %>% 
+  select(Zeitstempel, rdm_services, policy) %>% 
+  transform(rdm_services = strsplit(rdm_services, ",")) %>% 
+  unnest(rdm_services)  %>% 
+  transform(rdm_services = str_trim(rdm_services, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_services)) %>% 
+  mutate(rdm_services = factor(rdm_services))
+
+FAIR_survey_rdm_services <- FAIR_survey_rdm_services %>% 
+  filter(!(rdm_services %in% c("DMPs)", "tools)", "hosting of DMPs)", "infrastructures", "although we are an institutional member of the Open Science Framework. Also", "currently looking into potential data vault solutions to preserve and provide restricted access to more sensitive data/data that cannot be deposited in existing repositories")))
+
+# recode levels
+FAIR_survey_rdm_services <- FAIR_survey_rdm_services %>% 
+  mutate(rdm_services = recode_factor(rdm_services,
+"consultancy on data management (e.g. funder requirements" = "consultancy on data management", "data register/catalogue in development (to record UGent research data outputs published in external data repositories). We don't have an institutional data repository at the moment" = "data register/catalogue in development"))
+
+# rdm_staff
+FAIR_survey_rdm_staff <- FAIR_survey %>% 
+  select(Zeitstempel, rdm_staff, policy) %>% 
+  transform(rdm_staff = strsplit(rdm_staff, ",")) %>% 
+  unnest(rdm_staff)  %>% 
+  transform(rdm_staff = str_trim(rdm_staff, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_staff)) %>% 
+  mutate(rdm_staff = factor(rdm_staff))
+
+FAIR_survey_rdm_staff <- FAIR_survey_rdm_staff %>% 
+  filter(!(rdm_staff %in% c("data libarians)", "directly linked to or embedded in a department/project)", "but there is no specific profile.", "Our dedicated data stewards are based in the central library and each is dedicated to support and liaise with a cluster of faculties (so they have more of an advisory role than a hands-on data management role embedded in a specific project or department; i.e. they are not operational data managers); we have developers working on our institutional publications repository/data catalogue; we will also be employing data curators in the near future. Some research groups/project may employ some kind of data managers", "but we don't necessarily know about them (yet) and they do not necessarily work from the perspective of open and FAIR data")))
+
+# recode levels
+FAIR_survey_rdm_staff <- FAIR_survey_rdm_staff %>% 
+  mutate(rdm_staff = recode_factor(rdm_staff, "data managers (e.g. research data managers" = "data manager(s) / librarian(s)", "Data librarian" = "data manager(s) / librarian(s)", "infrastructure engineers and managers (e.g. data repository developer)" = "infrastructure engineer(s) and manager(s)", "dedicated data stewards (implementation and liaison role" = "dedicated data steward(s)",  "Training in these subjects is planned for librarians" = "training of librarians planned"))
+
+# rdm_actions
+FAIR_survey_rdm_actions <- FAIR_survey %>% 
+  select(Zeitstempel, rdm_actions, policy) %>% 
+  transform(rdm_actions = strsplit(rdm_actions, ",")) %>% 
+  unnest(rdm_actions)  %>% 
+  transform(rdm_actions = str_trim(rdm_actions, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_actions)) %>% 
+  mutate(rdm_actions = factor(rdm_actions))
+
+FAIR_survey_rdm_actions <- FAIR_survey_rdm_actions %>% 
+  filter(!(rdm_actions %in% c("SURF", "UKB", "Some clarification: involvement in Flemish initiatives providing informal training initiatives for data stewards (we have also co-organised a training for data stewards and RDM professionals in Belgium together with e.g. FAIRsFAIR); also engagement with working groups on Flemish level to discuss FAIR data metrics/assessment")))
+
+# recode levels
+FAIR_survey_rdm_actions <- FAIR_survey_rdm_actions %>% 
+  mutate(rdm_actions = recode_factor(rdm_actions, "Participating in national groups LCRDM" = "Participating in national groups", "Training for researchers is foreseen once the project is underway" = "Training for researchers foreseen"))
+
+# recode levels
+FAIR_survey_rdm_services <- FAIR_survey_rdm_services %>% 
+  filter(!(rdm_services %in% c("but will be ready in the future.", "The project presented includes the above options"))) %>% 
+  mutate(rdm_services = recode_factor(rdm_services,
+"training (e.g. RDM" = "training", "DMP service platform (creation" = "DMP service platform"))
+
+# FAIR challenges
+FAIR_survey %>% filter(!is.na(fair_challenges)) %>% 
+  select(fair_challenges) %>%  
+  head(n = 8)
+
+
+## Define lollipop plot function
+lollipop_plot <- function(data, var, title, m, subtitle){
+  plot <- ggplot(data, aes(x = reorder({{var}}, n), y = n)) +
+  geom_segment(aes(xend = {{var}}, y = 0, yend = n), color="grey") +
+  geom_point(color = "orange", size = 4) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) + ggtitle(title, subtitle = paste(m, subtitle)) + xlab("")
+  return(plot)
+}
+
+# standard plot function (bar in lightblue)
+standard_plot <- function(data, var, title, m, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(fill = "lightblue") + 
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle = paste(m, subtitle)) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) 
+  return(plot)
+}
+
+# standard plot function, with extra filling variable
+standard_plot2 <- function(data, var, title, fill, m, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(aes(fill = {{fill}})) + 
+#    scale_fill_brewer(palette = "Set2") +
+    scale_fill_manual(values=wes_palette(n=3, name="FantasticFox1")) +
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle = paste(m, subtitle)) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) 
+  return(plot)
+}
+
+
+# plots
+# policy
+rdm_policy_tab <- FAIR_survey %>% count(policy) %>% arrange(desc(n))
+lollipop_plot(rdm_policy_tab, policy, title = "RDM policies at ENLIGHT partner universities", n, subtitle = "responses")
+
+```
+
+```{r rdm_services , fig.height = 4, fig.width = 9}
+# RDM services
+rdm_services_tab <- FAIR_survey_rdm_services %>% count(rdm_services) %>% arrange(desc(n))
+
+lollipop_plot(rdm_services_tab, rdm_services, title = "RDM services at ENLIGHT partner universities", n, subtitle = "responses") + 
+  theme(plot.caption = element_text(hjust = 0)) + 
+  labs(caption = "Includes planned services for one institution.")
+
+# FAIR_survey_rdm_services %>% ggplot(aes(x = reorder(rdm_services, table(rdm_services)[rdm_services]))) + geom_bar(aes(fill = policy)) + coord_flip() + ggtitle("RDM services at ENLIGHT partner universities", subtitle = paste(n, "responses")) + theme_minimal() + ylab("") + xlab("") + 
+#   theme(plot.caption = element_text(hjust = 0)) + 
+#   labs(caption = "Includes planned services for one institution.")
+
+standard_plot2(FAIR_survey_rdm_services, rdm_services, fill = policy, title = "RDM services at ENLIGHT partner universities", n, subtitle = "responses", caption = "")
+
+```
+
+```{r rdm_policies , fig.height = 4, fig.width = 9}
+
+standard_plot(FAIR_survey, policy, title = "RDM policies at ENLIGHT institutions", n, subtitle = "responses", caption = "")
+
+```
+
+```{r rdm_staff, fig.height = 4, fig.width = 9}
+standard_plot2(FAIR_survey_rdm_staff, rdm_staff, fill = policy, title = "RDM staff at ENLIGHT institutions", n, subtitle = "responses", caption = "")
+
+```
+
+```{r rdm_actions, fig.height = 4, fig.width = 9}
+
+standard_plot2(FAIR_survey_rdm_actions, rdm_actions, fill = policy, title = "RDM actions at ENLIGHT institutions", n, subtitle = "responses", caption = "")
+
+```
+
+```{r statement_fair , fig.height = 4, fig.width = 9}
+
+standard_plot(FAIR_survey_st_fair, statement_fair, title = "FAIR in RMD policies at ENLIGHT institutions", n, subtitle = "responses", caption = "")
+
+```
+
+```{r statement_sharing , fig.height = 4, fig.width = 10}
+standard_plot(FAIR_survey_st_sharing, statement_sharing, title = "Open data or data sharing in RMD policies at ENLIGHT institutions", n, subtitle = "responses", caption = "")
+
+``` 
