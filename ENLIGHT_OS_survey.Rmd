@@ -172,7 +172,8 @@ os_survey %>% ggplot(aes(oa, institution)) + geom_vline(xintercept = median(os_s
 
 os_activities <- os_survey %>% select(institution, oa:societal_part)  %>% pivot_longer(oa:societal_part, names_to = "activity_type", values_to = "activity_level") %>% mutate(activity_type = factor(activity_type, levels = c("oa", "rdm", "os_edu_skills", "open_edu", "societal_part"), labels = c("OA", "RDM", "OS education & skills", " Open education", "Societal participation")))
 
-os_activities %>% ggplot(aes(institution, activity_type)) + geom_tile(aes(fill = activity_level)) + scale_fill_gradient(low = "white", high = "#5c940d") + ylab("") + xlab("") + theme_minimal() + ggtitle("Open Science activity areas (self-assessment) at ENLIGHT partner universities")
+os_activities %>% ggplot(aes(institution, activity_type)) + geom_tile(aes(fill = activity_level)) + scale_fill_gradient(low = "white", high = "#5c940d") + ylab("") + xlab("") + theme_minimal() + ggtitle("Open Science activity areas (self-assessment) at ENLIGHT partner universities") +
+  labs(fill = "activity level")
 
 os_activities %>% ggplot(aes(activity_type, activity_level)) + geom_boxplot(outlier.shape = NA) + geom_jitter(alpha = 0.75, width = 0.2, height = 0, color = "orange", size = 3) + ylab("") + xlab("") + theme_minimal() + coord_flip() + ggtitle("Distribution of Open Science activity levels")
 
