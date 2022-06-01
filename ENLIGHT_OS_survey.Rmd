@@ -62,7 +62,7 @@ names(os_survey)
 # [37] "inst_conditions"         "national_conditions"     "wishes" 
 
 # add short institutional names
-os_survey$institution <- c("UPV/EHU", "CU", "UT", "UU", "RUG", "NUI", "UGOE",  "UGENT", "UBx")
+os_survey$institution <- c("UPV/EHU", "CU", "UT", "UU", "RUG", "NUIG", "UGOE",  "UGENT", "UBx")
 
 
 # Requests for corrections to the data after 31 Jan 2022
