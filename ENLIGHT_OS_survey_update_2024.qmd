@@ -1,0 +1,577 @@
+---
+title: "ENLIGHT Open Science Survey 2024"
+date: today
+author: Birgit Schmidt
+format: 
+  html: 
+    embed-resources: true
+execute:
+  echo: false
+  message: false
+  cache: false
+  warning: false
+---
+
+# Results from the survey on Open Science 2024
+
+This report provides an update on Open Science (OS) across the ENLIGHT university network based on a survey that was conducted in February/March 2024. The survey was open from 12 February until 12 March 2024. 
+
+Each of the ten partner universities provided one response, completed by library and research support staff. The University of Bern joined ENLIGHT on 1 December 2022, and is therefore included in this edition of the OS survey but not in the 2022 edition. All respondent names and other names mentioned were removed in the final dataset. 
+
+The survey was divided into 9 parts: general information, assessment of OS activities, infrastructures and support, skills and knowledge, community activities, policy, recognition and rewards, looking into the future (after the end of ENLIGHT RISE), and finally research data management and FAIR data.
+
+Compared to the surveys from 2022 the questions on Open Science and research data management were integrated. Moreover, questions targeting views on joint achievements and possible future actions were added. 
+
+
+```{r}
+#| label: load-packages
+
+# packages <- c("tidyverse", "RColorBrewer", "wesanderson")
+# if (!require(packages)) install.packages(packages[!require(packages)])
+if (!require(tidyverse)) install.packages('tidyverse')
+if (!require(RColorBrewer)) install.packages('RColorBrewer')
+if (!require(wesanderson)) install.packages('wesanderson')
+library(tidyverse)
+library(RColorBrewer)
+library(wesanderson)
+library(plotly)
+library(hrbrthemes)
+library(data.table)
+
+# my palettes
+## modified Wes Anderson / FantasticFox1 + grey (reordered)
+palette0 <- c( "#dc8c29", "#e1d100","#45abc8")
+palette1 <- c("#9b9b99", palette0)
+palette2 <- c("#9b9b99", "#dc8c29", "#e1d100", "#2d7893", "#45abc8")
+
+
+#### A couple of plotting functions ####
+# standard plot function (bar in lightblue)
+standard_plot <- function(data, var, title, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(fill = "lightblue") + 
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) 
+  return(plot)
+}
+
+# standard plot function, with extra filling variable
+standard_plot2 <- function(data, var, title, fill, m, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(aes(fill = {{fill}}), position = "stack") +
+    scale_fill_manual(values= palette0) +
+#    scale_fill_manual(values=wes_palette(n=3, name="FantasticFox1")) +
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle = paste(m, subtitle)) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) 
+  return(plot)
+}
+
+# standard plot function, with extra filling variable 
+standard_plot3 <- function(data, var, title, fill, m, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(aes(fill = {{fill}}), position = "stack") +
+    scale_fill_manual(values= palette1) +
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle = paste(m, subtitle)) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) +
+    guides(fill = guide_legend(reverse=TRUE))
+  return(plot)
+}
+
+# standard plot function, with extra filling variable (6 colors)
+standard_plot4 <- function(data, var, title, fill, m, subtitle, caption){
+  plot <- ggplot(data, aes(x = reorder({{var}}, table({{var}})[{{var}}]))) +
+    geom_bar(aes(fill = {{fill}}), position = "stack") +
+    scale_fill_manual(values= palette2) +
+    coord_flip() + 
+    theme_minimal() + ylab("") + xlab("") + 
+    ggtitle(title, subtitle = paste(m, subtitle)) +
+        theme(plot.caption = element_text(hjust = 0)) + 
+    labs(caption = caption) +
+    guides(fill = guide_legend(reverse=TRUE))
+  return(plot)
+}
+
+## Define lollipop plot function
+lollipop_plot <- function(data, var, title, m, subtitle){
+  plot <- ggplot(data, aes(x = reorder({{var}}, n), y = n)) +
+  geom_segment(aes(xend = {{var}}, y = 0, yend = n), color="grey") +
+  geom_point(color = "orange", size = 4) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) + ggtitle(title, subtitle = paste(m, subtitle)) + xlab("")
+  return(plot)
+}
+
+
+```
+
+
+```{r}
+#| label: read-data
+#| include: false
+
+# read the raw data
+os_survey_2024_raw <- read_csv2("data/ENLIGHT_Update_on_OS_20240312.csv")
+
+# shorten variable names
+os_survey_2024 <- os_survey_2024_raw  %>% rename(respondent_type = "What is your function?", institution_full_name = "Please select your university", oa = "Open Access to publications (e.g mentioned at policy level, implemented by staff to a high degree, and support service available to support staff in OA publishing and the use of OA repositories = Very high)", rdm = "FAIR data and data sharing (e.g. mentioned at policy level, implemented by staff to a high degree, and support service available to support staff in making and sharing FAIR data = Very high)", os_edu_skills = "Open Science education and skills (e.g. university units offer Open Science workshops for staff, there is a bottom-up Open Science Community present, and the university has a support service for staff that needs help in applying Open Science practices = Very high)", open_edu = "Open Education (e.g. mentioned at policy level, Open Educational Resources (OER) are widely used in curricula, and support service available for staff implementing OER in their teaching = Very high)", societal_part = "Societal Participation and Citizen Science (e.g. mentioned at policy level, implemented by staff to a high degree, and support service available to support staff in Societal Participation and Citizen Science = Very high)", highlights_os = "Are there any examples/actions in the above Open Science activity areas that you would like to highlight? (e.g. pockets of excellence/engagement if your overall assessment is low or moderate)", enlight_os_impact = "Did you strengthen any of these through collaboration with ENLIGHT partners, and how? Please be as specific as possible.", services_pub_repo = "Which scholarly services do researchers have access to at your organisation?  [Publications repository]", services_data_repo = "Which scholarly services do researchers have access to at your organisation?  [Data repository]", services_pub_fund = "Which scholarly services do researchers have access to at your organisation?  [Institutional fund for OA publishing of articles and books]", services_pub_platform = "Which scholarly services do researchers have access to at your organisation?  [OA publishing platform (e.g. journals, books, conference output)]", services_rdm_support = "Which scholarly services do researchers have access to at your organisation?  [RDM /FAIR support and advice services]", services_dmp = "Which scholarly services do researchers have access to at your organisation?  [Data management plan (DMP) service]", services_pid = "Which scholarly services do researchers have access to at your organisation?  [Persistent identifier services and integration (ORCID, DOIs, other)]", services_ipr = "Which scholarly services do researchers have access to at your organisation?  [Support services for legal issues (IPR, GDPR, Copyright)]", services_data_reg = "Which scholarly services do researchers have access to at your organisation?  [Data Registries]")
+
+os_survey_2024 <- os_survey_2024 %>% rename(services_uni_press = "Which scholarly services do researchers have access to at your organisation?  [University Press]", os_training = "What training on Open Science does your institution currently offer?", os_training_topics = "What topics are covered in your trainings?", os_community_disc = "Are there any Open Science community activities at your institution?  [Disciplinary Open Science groups (e.g. ReproducibiliTea)]",  os_community_across_disc = "Are there any Open Science community activities at your institution?  [Open Science Community (across disciplines)]", os_community_os =  "Are there any Open Science community activities at your institution?  [Data and software groups (e.g. RLadies, Carpentries, HackyHour)]", os_community_ambass = "Are there any Open Science community activities at your institution?  [Network of ambassadors (e.g. Open Science, Open Access or Data Champions)]")
+                                    
+os_survey_2024 <- os_survey_2024  %>% rename(eval_enlight_os_ambass = "How would you assess the success of the ENLIGHT OS ambassador network? How did you involve the OS ambassadors at your institutional level?", policy_oa_stand_alone = "What kind of Open Science policy/strategy/roadmap is in place at your university?  [Open Access policy (stand-alone)]", policy_rdm_stand_alone = "What kind of Open Science policy/strategy/roadmap is in place at your university?  [Data management policy (stand-alone)]", policy_os_overarching = "What kind of Open Science policy/strategy/roadmap is in place at your university?  [Open Science policy (overarching)]", policy_ri = "What kind of Open Science policy/strategy/roadmap is in place at your university?  [Research integrity policy (with elements on OS embedded, e.g. data management)]", policy_univ_strategy = "What kind of Open Science policy/strategy/roadmap is in place at your university?  [University strategy (elements on OS embedded)]", policy_link = "If the policy(ies) is(are) published, please provide link(s) here:", os_policy_elements =  "Please specify the elements of your institution’s policy(ies) on Open Science. (Multiple choice possible)", compliance_monitoring = "What kind of mechanism for monitoring OS do you have at your institution?", comm_enlight_os_principles = "How have you or will you (continue to) communicate the ENLIGHT OS principles in your institution? (Multiple choice possible)", rr_approaches_os_criteria = "Rewards and Recognition: What approaches have you already established or tested at your institution? (Multiple choice possible) [Open Science constitutes a criterion in research assessment]", rr_approaches_hiring =  "Rewards and Recognition: What approaches have you already established or tested at your institution? (Multiple choice possible) [Hiring procedures include requests for information on Open Science engagement]", rr_approaches_os_funds = "Rewards and Recognition: What approaches have you already established or tested at your institution? (Multiple choice possible) [Special funds or awards for OS activities]", rr_approaches_staff_review = "Rewards and Recognition: What approaches have you already established or tested at your institution? (Multiple choice possible) [Open Science is part of the staff review process]", coara_membership = "Is your institution a member of the Coalition for Advancing Research Assessment (CoARA)?", enlight_successes = "What Open Science activities do you consider most successful in ENLIGHT? (Multiple choice possible)", enlight_benefits = "What progress or benefits related to Open Science have been created at your institutional level thanks to the collaboration in ENLIGHT?", enlight_continue =  "What activities would you like to continue or expand in ENLIGHT 2.0? (Multiple choice possible)", enlight_training_sugg = "Are there any specific topics that you would like to suggest for future ENLIGHT Open Science training events?", enlight_wg_needs = "What do you need at your institutional level to contribute to the implementation of these activities? (Multiple choice possible)\n", rdm_policy_data_sharing = "In case your institution already has a research data policy: Does it include a statement on data sharing and/or open data? (Multiple choice possible)", rdm_policy_fair = "Does or will your research data policy include a statement on FAIR data?", rdm_services = "Which research data services are offered at your institution? (Multiple choice possible)", rdm_staff = "What data management staff roles are currently in place at your institution? (Multiple choice possible)", rdm_actions = "What actions are currently taken for fostering skills and capacities for RDM and making data FAIR? (Multiple choice possible)", fair_challenges = "What are currently your main challenges related to implementing FAIR?", other_cmts = "Do you have any other comments? Thank you for all your input!")
+
+
+# add a variable with short institutional names (hard-coded!)
+os_survey_2024$institution <- c("UB", "CU", "UU", "NUIG", "UT", "UGOE","UPV/EHU","RUG", "UGENT", "UBx")
+
+# save data 
+os_survey_2024$year <- 2024
+write_csv2(os_survey_2024, "data_processed/os_survey_2024.csv")
+
+# read 2022 OS survey data
+os_survey_2022 <- read_csv2("data_processed/os_survey_2022.csv")
+os_survey_2022$year <- 2022
+
+# join the datasets
+by <- join_by(Zeitstempel)
+os_survey_all <- full_join(os_survey_2022, os_survey_2024)
+
+```
+
+## Levels of OS activity
+
+```{r}
+#| label: fig-os-activities
+#| fig-cap: "Open Science activity areas at ENLIGHT partner universities (as of 1 March 2024)"
+#| fig-width: 9 
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+options(repr.plot.width = 10, repr.plot.height = 5) 
+
+os_activities_2024 <- os_survey_2024 %>% select(institution, oa:societal_part)  %>% mutate(institution = factor(institution)) %>% pivot_longer(oa:societal_part, names_to = "activity_type", values_to = "activity_level") %>% mutate(activity_type = factor(activity_type, levels = c("oa", "rdm", "os_edu_skills", "open_edu", "societal_part"), labels = c("OA", "RDM", "OS education & skills", "Open education", "Societal participation")))
+
+#' mosaic plot of OS activities 
+#' (factor in inverse order due to flip of coordinates)
+os_activities_2024 %>% ggplot(aes(institution, fct_rev(activity_type))) + geom_tile(aes(fill = activity_level)) + scale_fill_gradient(low = "white", high = "#5c940d") + ylab("") + xlab("") + theme_minimal() + labs(fill = "activity level") + ggtitle("Open Science activity areas (self-assessment) at ENLIGHT partner universities (2024)") 
+
+ggsave("plots/os-activities-2024.png", width = 9, height = 5, units = "in")
+
+```
+
+```{r}
+#| label: fig-os-activities-compared
+#| fig-cap: "Comparison of Open Science activity areas at ENLIGHT partner universities (2024 vs. 2022, average across 9 universities)"
+#| fig-width: 7 
+#| fig-height: 4
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+library(ggplot2)
+
+# compute the difference of the average for 2024 vs. 2022
+os_survey_2022_nine <- os_survey_2022 %>% filter(!(institution == "UB"))
+
+#os_activities_2022_avg <- os_survey_2022_nine %>% mutate_at(c(oa:societal_part), mean)
+#os_activities_2024_avg <- os_survey_2024 %>% mutate_at(c(oa:societal_part), mean)
+
+os_activities_avg <- os_survey_all %>% select(oa:societal_part, year) %>% group_by(year) %>% summarise(across(c(oa:societal_part), mean))
+
+os_activities_avg_t <- transpose(os_activities_avg)
+os_activities_avg_t$activity_type <- colnames(os_activities_avg)
+colnames(os_activities_avg_t) <- c("value1", "value2", "activity_type")
+
+os_activities_avg_tt <- os_activities_avg_t[-1, ] 
+os_activities_avg_tt <- os_activities_avg_tt %>% mutate(activity_type = factor(activity_type, levels = c("oa", "rdm", "os_edu_skills", "open_edu", "societal_part"), labels = c("OA", "RDM", "OS education & skills", "Open education", "Societal participation")))
+
+# Plot
+ggplot(os_activities_avg_tt) +
+  geom_segment(aes(x=fct_rev(activity_type), xend=activity_type, y=value1, yend=value2), color="grey") +
+  geom_point( aes(x=activity_type, y=value1), color= "#5e81ac", size=3 ) +
+  geom_point( aes(x=activity_type, y=value2), color= "#a3be8c", size=3 ) +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+  ) +
+  xlab("") +
+  ylab("")
+
+```
+
+```{r}
+#| label: os-activities-all-years
+#| echo: false
+
+os_activities_all <- os_survey_all %>% select(oa:societal_part, year, institution) %>% arrange(institution, year)
+write_csv2(os_activities_all, "data_processed/os_activities_all.csv")
+
+```
+
+The figure compares the mean activity levels for the five core OS activity areas as reported in 2024 (green) compared to 2022 (blue). The University of Bern was excluded in this comparison as they did not participate in the 2022 edition of the survey.
+
+For almost all OS areas some growth of the mean values based on the nine considered ENLIGHT partner universities could be observed. The strongest growth of activity levels was observed for research data management and societal participation. Only small gains were achieved for OA and OS education and skills (starting from high levels of activity) while a small reduction of activity was reported for open education (starting from modest level).
+
+The greatest diversity in terms of uptake and the largest room for improvements seems to be in open education and societal engagement. 
+
+
+## Infrastructures and support
+
+```{r}
+#| label: os-services
+#| fig-width: 7 
+#| fig-height: 4
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+os_services_2024 <- os_survey_2024 %>%
+  select(institution, services_pub_repo:services_uni_press) %>%
+  pivot_longer(services_pub_repo:services_uni_press, names_to = "service", values_to = "status") %>%
+  mutate(status = replace_na(status, "NA")) %>% 
+  mutate(service = factor(service, levels = c("services_ipr",  "services_pub_platform", "services_uni_press",  "services_pub_fund",  "services_pub_repo", "services_data_repo", "services_data_reg",  "services_rdm_support", "services_dmp", "services_pid" ), labels = c("IPR services", "publication platform","university press", "publication fund", "publication repository", "data repository", "data registry", "RDM support", "DMP services", "PID services")), status = factor(status, levels = c("NA", "Under discussion", "Under development", "Available"))) 
+
+
+standard_plot3(os_services_2024, service, fill = status, title = "Open Science services at ENLIGHT institutions", m = 10, subtitle = "responses", caption = "") + scale_y_continuous(limits = c(0,10), breaks = c(0, 5, 10)) 
+
+```
+## OS training
+
+```{r}
+#| label: os-training
+#| fig-width: 8 
+#| fig-height: 4
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# "os_training"            
+# "os_training_topics"      
+# "enlight_training_topics" 
+
+# OS training
+os_survey_os_training_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, os_training) %>% 
+  transform(os_training = strsplit(os_training, ",")) %>% 
+  unnest(os_training)  %>% 
+  transform(os_training = str_trim(os_training, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(os_training)) %>% 
+  mutate(os_training = factor(os_training))
+
+# standard answers
+os_training_targets <- unique(os_survey_os_training_2024$os_training) %>% str_subset("Training for")
+
+os_survey_os_training_2024 <- os_survey_os_training_2024 %>% filter(os_training %in% os_training_targets)
+  
+standard_plot(os_survey_os_training_2024, os_training, title = "Open Science training at ENLIGHT institutions (2024)", subtitle = "", caption = "") +
+  scale_y_continuous(limits = c(0,10), breaks = c(0, 5, 10))
+
+# OS training topics
+os_survey_os_training_topics_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, os_training_topics) %>% 
+  transform(os_training_topics = strsplit(os_training_topics, ",")) %>%
+  unnest(os_training_topics)  %>% 
+  transform(os_training_topics = str_trim(os_training_topics, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(os_training_topics)) %>% 
+  mutate(os_training_topics = factor(os_training_topics)) 
+
+os_survey_os_training_topics_2024 <- os_survey_os_training_topics_2024 %>% filter(!(os_training_topics %in% c("See previous note", "etc.)", "IPR", "licensing", "processing", "preprints", "evaluation of the quality of publication outlets", "societal participation"))) %>%
+  mutate(os_training_topics = recode_factor(os_training_topics, "Data skills (creating/collecting" = "Data skills", "Scholarly communication (Open Access" = "Scholarly communication / Open Access", "Legal issues (IPR" = "Legal issues", "Research data management and sharing (incl. FAIR)" = "RDM, FAIR data, data sharing", "Responsible research assessment (incl. impact metrics)" = "Responsible research assessment", "data publishing" = "Data publishing", "Publication ethics (peer review" = "Publication ethics", "Citizen engagement" = "Citizen engagement / societal partipation"))
+
+standard_plot(os_survey_os_training_topics_2024, os_training_topics, title = "Open Science training topics (2024)", subtitle = "", caption = "") + scale_y_continuous(limits = c(0,10), breaks = c(0, 5, 10))
+
+```
+
+
+
+
+
+
+
+## Community activities
+
+```{r}
+#| label: os-communities
+#| fig-width: 7 
+#| fig-height: 4
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+os_community_2024 <- os_survey_2024 %>%
+  select(institution, os_community_disc:os_community_ambass) %>%
+  pivot_longer(os_community_disc:os_community_ambass, names_to = "community", values_to = "status") %>%
+  mutate(status = replace_na(status, "NA")) %>% 
+  mutate(community = factor(community, levels = c("os_community_disc", "os_community_across_disc", "os_community_os","os_community_ambass"), labels = c("Disciplinary OS Community", "Across-discipline OS Community","Data and software groups", "Network of OS/OA Ambassadors")), status = factor(status, levels = c("NA", "Under discussion", "Under development", "Available")))
+
+standard_plot3(os_community_2024, community, fill = status, title = "Open Science communities at ENLIGHT institutions", m = 10, subtitle = "responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+```
+
+
+
+## Policies
+
+```{r}
+#| label: os-policies
+#| fig-width: 7 
+#| fig-height: 4
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# [28] "policy_oa_stand_alone"      "policy_rdm_stand_alone"    "policy_os_overarching"
+# "policy_ri"                  "policy_univ_strategy" 
+
+
+os_policies_2024 <- os_survey_2024 %>%
+  select(institution, policy_oa_stand_alone:policy_univ_strategy) %>%
+  pivot_longer(policy_oa_stand_alone:policy_univ_strategy, names_to = "policy", values_to = "status") %>%
+  mutate(policy = factor(policy, levels = c("policy_os_overarching", "policy_ri",  "policy_univ_strategy", "policy_rdm_stand_alone", "policy_oa_stand_alone"), labels = c("Overarching OS policy", "Research integrity policy", "OS embedded in \n university strategy", "RDM stand-alone policy", "OA stand-alone policy")), status = factor(status, labels = c("Not available, \n currently not considered", "Under discussion", "Under development", "Available & Updated since Jan 2022", "Available"), levels = c("Not available, currently not considered", "Under discussion", "Under development", "Available & Updated since January 2022", "Available")))
+
+standard_plot4(os_policies_2024, policy, fill = status, title = "Open Science policies at ENLIGHT institutions", m = 10, subtitle = "responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+
+```
+
+
+
+```{r}
+#| label: os-policy-elements
+#| fig-width: 8 
+#| fig-height: 9
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# policy link
+os_survey_2024 %>% filter(!is.na(policy_link)) %>% select(policy_link)
+
+# policy elements 
+os_policy_elements_tab_2024 <- 
+  os_survey_2024 %>% select(Zeitstempel, os_policy_elements, institution) %>%   
+  transform(os_policy_elements = strsplit(os_policy_elements, ",")) %>% 
+  unnest(os_policy_elements)  %>% 
+  transform(os_policy_elements = str_trim(os_policy_elements, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(os_policy_elements)) %>% 
+  mutate(os_policy_elements = factor(os_policy_elements))
+
+os_policy_elements_tab_2024 <- os_policy_elements_tab_2024 %>% 
+  filter(!(os_policy_elements %in% c("We expect that in the next 2 years the institutional data repository will become a reality.", "Most elements above will be covered when a policy is ready."))) %>% 
+  mutate(os_policy_elements = recode_factor(os_policy_elements, "Encouragement and support for OA journal publishing (e.g. institutional journal hosting)" = "Encouragement & support for OA journal publishing", "Responsible management of research data in line with the FAIR principles" = "Responsible RDM in line with the FAIR principles", "Obligation to create and maintain a data management plan" = "Obligation to create and maintain a DMP", 	"Encouragement and support for data management and data sharing" = "Encouragement & support for RDM and data sharing"))   
+  
+
+standard_plot(os_policy_elements_tab_2024, os_policy_elements, title = "Open Science policy elements at ENLIGHT institutions", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+# free text on compliance monitoring
+os_survey_2024 %>% filter(!is.na(compliance_monitoring)) %>% select(compliance_monitoring)
+
+```
+
+
+
+```{r}
+#| label: comms-enlight-os-principles
+#| fig-width: 8 
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+#' communication of ENLIGHT OS principles
+comms_os_policy_tab_2024 <- 
+  os_survey_2024 %>% select(Zeitstempel, comm_enlight_os_principles, institution) %>%   
+  transform(comm_enlight_os_principles = strsplit(comm_enlight_os_principles, ",")) %>% 
+  unnest(comm_enlight_os_principles)  %>% 
+  transform(comm_enlight_os_principles = str_trim(comm_enlight_os_principles, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(comm_enlight_os_principles)) %>% 
+  mutate(comm_enlight_os_principles = factor(comm_enlight_os_principles))
+
+comms_os_policy_tab_2024 <- comms_os_policy_tab_2024 %>% 
+  filter(!(comm_enlight_os_principles %in% c("but after that no active communication/dissemination. It will be a helpful tool when developing local policies."))) %>% 
+  mutate(comm_enlight_os_principles = recode_factor(comm_enlight_os_principles, "The policy was noted when it was signed" = "Communicated when it was signed but no further activity.", "The Enlight OS Principles have been published in the University news. The rector's team informs us that nothing else is planned for the time being." = "Communicated when it was signed but no further activity."))   
+  
+standard_plot(comms_os_policy_tab_2024, comm_enlight_os_principles, title = "Communication of the ENLIGHT OS Principles \n at ENLIGHT institutions", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+
+```
+
+## Recognition and rewards
+```{r}
+#| label: rra-approaches
+#| fig-width: 8 
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# [37] "rr_approaches_os_criteria"  "rr_approaches_hiring"       "rr_approaches_os_funds"
+# [40] "rr_approaches_staff_review" "coara_membership"           
+
+# Recognition and reward approaches in ENLIGHT
+rr_approaches_2024 <- os_survey_2024 %>% select(institution, rr_approaches_os_criteria:rr_approaches_staff_review) %>% pivot_longer(rr_approaches_os_criteria:rr_approaches_staff_review, names_to = "approach", values_to = "status") %>% mutate(approach = factor(approach, levels = c("rr_approaches_os_criteria", "rr_approaches_hiring", "rr_approaches_os_funds", "rr_approaches_staff_review"), labels = c("OS is a criterion in research assessement", "Hiring procedures include requests \n for information on OS engagement", "Special funds or awards for OS activities", "OS is part of the staff review process")), status = factor(status, levels = c("Currently not considered", "Under discussion", "In test/pilot phase", "Established")))
+
+standard_plot3(rr_approaches_2024, approach, fill = status, title = "Recognition and reward approaches at ENLIGHT institutions", m = 10, subtitle = "responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+# coara membership
+standard_plot(os_survey_2024, coara_membership, title = "Status of CoARA membership of ENLIGHT partner universities", subtitle = "", caption = "") + scale_y_continuous(limits = c(0, 4), breaks = c(0, 1, 2, 3, 4))
+
+
+```
+
+
+## Joint achievements and future activities
+```{r}
+#| label: enlight-successes
+#| fig-width: 8 
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+
+# "enlight_successes"    
+# [43] "enlight_benefits"           "enlight_continue"           
+# [46] "enlight_wg_needs"  
+
+# ENLIGHT successes
+enlight_successes_tab_2024 <- 
+  os_survey_2024 %>% select(Zeitstempel, enlight_successes, institution) %>%   
+  transform(enlight_successes = strsplit(enlight_successes, ",")) %>% 
+  unnest(enlight_successes)  %>% 
+  transform(enlight_successes = str_trim(enlight_successes, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(enlight_successes)) %>% 
+  mutate(enlight_successes = factor(enlight_successes))
+
+enlight_successes_tab_2024 <- enlight_successes_tab_2024 %>% 
+  filter(!(enlight_successes %in% c(""))) %>% 
+  mutate(enlight_successes = recode_factor(enlight_successes, "Networking and exchange on good practices with Open Science and other experts" = "Networking and exchange \n on good practices", "Development and agreement on joint ENLIGHT Open Science principles" = "ENLIGHT OS principles", "Joint development and implementation of the ENLIGHT OS Ambassadors" = "OS Ambassadors", "Joint creation of the ENLIGHT Open Science Toolkit" = "OS Toolkit", "eg webinars" = "OS webinars", "joint OS Webinar Series" = "OS webinars", "collaboration with other alliances" = "Collaboration with other \n university alliances", "joint OS Award" = "OS Award"))   
+standard_plot(enlight_successes_tab_2024, enlight_successes, title = "Views on ENLIGHT successes at ENLIGHT institutions", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+# free text on ENLIGHT benefits
+os_survey_2024 %>% filter(!is.na(enlight_benefits)) %>% select(enlight_benefits)
+
+```
+
+```{r}
+#| label: future-actions
+#| fig-width: 8
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Suggestions on what to continue in ENLIGHT 2.0 / Expert network
+enlight_continue_tab_2024 <- 
+  os_survey_2024 %>% select(Zeitstempel, enlight_continue, institution) %>%   
+  transform(enlight_continue = strsplit(enlight_continue, ",")) %>% 
+  unnest(enlight_continue)  %>% 
+  transform(enlight_continue = str_trim(enlight_continue, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(enlight_continue)) %>% 
+  mutate(enlight_continue = factor(enlight_continue))
+
+enlight_continue_tab_2024 <- enlight_continue_tab_2024 %>% 
+  filter(!(enlight_continue %in% c("it might be difficult to maintain activities like Ambassadors and OS Toolkit.", "If OS is no longer part of a WP"))) %>% 
+  mutate(enlight_continue = recode_factor(enlight_continue, "Networking and exchange on good practices with Open Science and other experts" = "Networking and exchange on good practice", "Promotion and updating of the ENLIGHT Open Science Toolkit" = "Promotion and updating of the OS Toolkit", "Create guidance for researchers on how to avoid unethical publishing" = "Create guidance for researchers on how \n to avoid unethical publishing", "Teaching Open Science together (incl. curriculum integration)" = "Teaching OS together", "Collecting and creating training materials" = "Collecting & creating training materials", "Joint support and use of the ENLIGHT OS Ambassadors" = "ENLIGHT OS Ambassadors"))   
+standard_plot(enlight_continue_tab_2024, enlight_continue, title = "Views on which activities should be continued or expanded \n in the OS Expert Network", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+
+# free text suggestions for ENLIGHT OS trainings 
+os_survey_2024 %>% filter(!is.na(enlight_training_sugg)) %>% select(enlight_training_sugg)
+
+```
+
+```{r}
+#| label: wg-needs
+#| fig-width: 7
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# enlight_wg_needs
+
+# Suggestions on what to continue in ENLIGHT 2.0 / Expert network
+enlight_wg_needs_tab_2024 <- 
+  os_survey_2024 %>% select(Zeitstempel, enlight_wg_needs, institution) %>%   
+  transform(enlight_wg_needs = strsplit(enlight_wg_needs, ",")) %>% 
+  unnest(enlight_wg_needs)  %>% 
+  transform(enlight_wg_needs = str_trim(enlight_wg_needs, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(enlight_wg_needs)) %>% 
+  mutate(enlight_wg_needs = factor(enlight_wg_needs))
+
+enlight_wg_needs_tab_2024 <- enlight_wg_needs_tab_2024 %>% 
+  filter(!(enlight_wg_needs %in% c("consent would be handy", "in support of our research community"))) %>% 
+  mutate(enlight_wg_needs = recode_factor(enlight_wg_needs, "I think the most important thing at the moment is for the University to become more involved in open science and to promote the creation of a multidisciplinary team to promote it. The initiatives underway have to do only with open access to publications and data and are generally led only by the library." = "University needs to become more \n involved in OS,  beyond OA and RDM", "but we mainly need to be able to integrate ENLIGHT activities in our normal activities in the university. In other words" = "Integration of ENLIGHT activities \n in our normal activities", "Consent by institutional management to contribute hours" = "Consent by institutional management \n to contribute hours",      "Additional staff resources in the contributing unit(s)" = "Additional staff resources", "Additional financial resources (e.g. travel costs)" = "Additional financial resources"))   
+
+standard_plot(enlight_wg_needs_tab_2024, enlight_wg_needs, title = "Views on needs to continue to contribute \n to the OS Expert Network", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 5), breaks = c(0, 5))
+
+```
+
+
+## Research data management and FAIR data
+
+```{r}
+#| label: rdm
+#| fig-width: 7 
+#| fig-height: 5
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# "rdm_policy_data_sharing"    "rdm_policy_fair"      
+# [49] "rdm_services"               "rdm_staff"                  "rdm_actions"           
+# [52] "fair_challenges" 
+
+
+
+# RDM services
+rdm_services_tab_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, rdm_services, policy_rdm_stand_alone) %>% 
+  transform(rdm_services = strsplit(rdm_services, ",")) %>% 
+  unnest(rdm_services)  %>% 
+  transform(rdm_services = str_trim(rdm_services, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_services)) %>% 
+  mutate(rdm_services = factor(rdm_services)) %>% 
+  filter(!(rdm_services %in% c("see previous answers.", "DMPs)", "hosting of DMPs)", "tools)", "In planning", "Training", "infrastructures"))) %>% 
+  mutate(rdm_services = recode_factor(rdm_services,
+"Consultancy on data management (e.g. funder requirements" = "Consultancy on RDM", "DMP service platform (creation" = "DMP service platform", "Training (e.g. RDM" = "Training")) %>% 
+  mutate(policy_rdm_stand_alone = factor(policy_rdm_stand_alone, labels = c("Not available, \n currently not considered", "Under discussion", "Under development", "Available & Updated since Jan 2022", "Available"), levels = c("Not available, currently not considered", "Under discussion", "Under development", "Available & Updated since January 2022", "Available")))
+#%>%  count(rdm_services) %>% arrange(desc(n))
+  
+standard_plot3(rdm_services_tab_2024, rdm_services, fill = policy_rdm_stand_alone, title = "RDM services at ENLIGHT partner universities \n (with policy information)", m = 10, subtitle = "responses", caption = "")
+
+standard_plot(rdm_services_tab_2024, rdm_services, title = "RDM services at ENLIGHT partner universities", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+```
+
+As already noted above 4 institutions have a RDM policy in place and for another four institution a policy is under development. The figure therefore covers information for both cases.
+
+
+
+
+
