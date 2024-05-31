@@ -24,9 +24,9 @@ Compared to the surveys from 2022, the questions on Open Science and research da
 
 The main areas and focus of the second survey were to
 
-* Update the information of the previous survey on Open Science (OS), Open Access (OA) and research data management (RDM) activities 
+* Update the information of the previous survey on Open Science (OS), Open Access (OA) and research data management (RDM) activities, 
 
-* Identify achievements based on the ENLIGHT RISE activities 
+* Identify achievements based on the ENLIGHT RISE activities, and 
 
 * Identify topics and priorities for continued collaboration on Open Science in ENLIGHT. 
 
