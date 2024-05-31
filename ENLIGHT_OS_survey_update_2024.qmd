@@ -8,20 +8,29 @@ format:
 execute:
   echo: false
   message: false
-  cache: false
+  cache: true
   warning: false
 ---
 
 # Results from the survey on Open Science 2024
 
-This report provides an update on Open Science (OS) across the ENLIGHT university network based on a survey that was conducted in February/March 2024. The survey was open from 12 February until 12 March 2024. 
+This report provides an update on Open Science (OS) across the ENLIGHT university network based on a survey that was conducted in February/March 2024. The survey was open from 6 February until 12 March 2024. 
 
 Each of the ten partner universities provided one response, completed by library and research support staff. The University of Bern joined ENLIGHT on 1 December 2022, and is therefore included in this edition of the OS survey but not in the 2022 edition. All respondent names and other names mentioned were removed in the final dataset. 
 
 The survey was divided into 9 parts: general information, assessment of OS activities, infrastructures and support, skills and knowledge, community activities, policy, recognition and rewards, looking into the future (after the end of ENLIGHT RISE), and finally research data management and FAIR data.
 
-Compared to the surveys from 2022 the questions on Open Science and research data management were integrated. Moreover, questions targeting views on joint achievements and possible future actions were added. 
+Compared to the surveys from 2022, the questions on Open Science and research data management were integrated. Moreover, questions targeting views on joint achievements and possible future actions were added. 
 
+The main areas and focus of the second survey were to
+
+* Update the information of the previous survey on Open Science (OS), Open Access (OA) and research data management (RDM) activities 
+
+* Identify achievements based on the ENLIGHT RISE activities 
+
+* Identify topics and priorities for continued collaboration on Open Science in ENLIGHT. 
+
+The survey findings will be published in the ENLIGHT Open Science Status Quo & Opportunities #2 (deliverable D7.2) report. 
 
 ```{r}
 #| label: load-packages
@@ -44,6 +53,19 @@ palette0 <- c( "#dc8c29", "#e1d100","#45abc8")
 palette1 <- c("#9b9b99", palette0)
 palette2 <- c("#9b9b99", "#dc8c29", "#e1d100", "#2d7893", "#45abc8")
 
+
+### Function to split values and create a table 
+# does not work - error based on "=" sign
+# create_tab <- function(data, var, var_fill){ 
+#   tab <- data %>% select({{var}}, {{var_fill}}) %>% 
+#     transform({{var}} = strsplit({{var}}, ",")) %>% 
+#     unnest({{var}}) %>% 
+#     transform({{var}} = str_trim({{var}}, side = "both")) %>% 
+#     as_tibble() %>% 
+#     filter(!is.na({{var}})) %>% 
+#     mutate({{var}} = factor({{var}}))
+#   return(tab)
+# }
 
 #### A couple of plotting functions ####
 # standard plot function (bar in lightblue)
@@ -536,16 +558,47 @@ standard_plot(enlight_wg_needs_tab_2024, enlight_wg_needs, title = "Views on nee
 
 ```{r}
 #| label: rdm
-#| fig-width: 7 
+#| fig-width: 8 
 #| fig-height: 5
 #| echo: true
 #| code-fold: true
 #| code-summary: "Show the code"
 
+# relevant variables
 # "rdm_policy_data_sharing"    "rdm_policy_fair"      
-# [49] "rdm_services"               "rdm_staff"                  "rdm_actions"           
-# [52] "fair_challenges" 
+# "rdm_services"               "rdm_staff"                  "rdm_actions"        
+# "fair_challenges" 
 
+
+# RDM policies - data sharing
+rdm_policy_data_sharing_tab_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, rdm_policy_data_sharing) %>% 
+  transform(rdm_policy_data_sharing = strsplit(rdm_policy_data_sharing, ",")) %>% 
+  unnest(rdm_policy_data_sharing) %>% 
+  transform(rdm_policy_data_sharing = str_trim(rdm_policy_data_sharing, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_policy_data_sharing)) %>% 
+  mutate(rdm_policy_data_sharing = factor(rdm_policy_data_sharing)) %>% 
+  filter(!(rdm_policy_data_sharing %in% c("RDP is only under construction at our university", 'but we are thinking about "as open as possible..." principle', "No policy yet :-(", "no policy", "The data repository project and the research data policy are expected to become a reality in the next 2 years."))) %>% 
+  mutate(rdm_policy_data_sharing = recode_factor(rdm_policy_data_sharing,
+'The "as open as possible as closed as necessary" principle is promoted.' = 'The "as open as possible as closed \n as necessary" principle is promoted.')) 
+
+standard_plot(rdm_policy_data_sharing_tab_2024, rdm_policy_data_sharing, title = "Promotion of data sharing at ENLIGHT partner universities", subtitle = "5 institutions with RDM policy in place", caption = "") + scale_y_continuous(limits = c(0, 4), breaks = c(0, 2, 4))
+
+
+# RDM policies - FAIR data
+rdm_policy_fair_tab_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, rdm_policy_fair) %>% 
+  transform(rdm_policy_fair = strsplit(rdm_policy_fair, ",")) %>% 
+  unnest(rdm_policy_fair) %>% 
+  transform(rdm_policy_fair = str_trim(rdm_policy_fair, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_policy_fair)) %>% 
+  mutate(rdm_policy_fair = factor(rdm_policy_fair)) %>% 
+  filter(!(rdm_policy_fair %in% c("no policy"))) %>% 
+  mutate(rdm_policy_fair = recode_factor(rdm_policy_fair, "FAIR will be included in the policy under development." = "FAIR will be included in the policy \n under development.")) 
+
+standard_plot(rdm_policy_fair_tab_2024, rdm_policy_fair, title = "Promotion of FAIR data at ENLIGHT partner universities", subtitle = "7 responses", caption = "") + scale_y_continuous(limits = c(0, 6), breaks = c(0, 2, 4, 6))
 
 
 # RDM services
@@ -563,13 +616,54 @@ rdm_services_tab_2024 <- os_survey_2024 %>%
   mutate(policy_rdm_stand_alone = factor(policy_rdm_stand_alone, labels = c("Not available, \n currently not considered", "Under discussion", "Under development", "Available & Updated since Jan 2022", "Available"), levels = c("Not available, currently not considered", "Under discussion", "Under development", "Available & Updated since January 2022", "Available")))
 #%>%  count(rdm_services) %>% arrange(desc(n))
   
-standard_plot3(rdm_services_tab_2024, rdm_services, fill = policy_rdm_stand_alone, title = "RDM services at ENLIGHT partner universities \n (with policy information)", m = 10, subtitle = "responses", caption = "")
+standard_plot3(rdm_services_tab_2024, rdm_services, fill = policy_rdm_stand_alone, title = "RDM services at ENLIGHT partner universities \n (with policy information)", m = 10, subtitle = "responses", caption = "") + guides(fill=guide_legend(title="RDM policy"))
 
 standard_plot(rdm_services_tab_2024, rdm_services, title = "RDM services at ENLIGHT partner universities", subtitle = "10 responses", caption = "") + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
 
+
+# RDM staff
+rdm_staff_tab_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, rdm_staff, policy_rdm_stand_alone) %>% 
+  transform(rdm_staff = strsplit(rdm_staff, ",")) %>% 
+  unnest(rdm_staff)  %>% 
+  transform(rdm_staff = str_trim(rdm_staff, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_staff)) %>% 
+  mutate(rdm_staff = factor(rdm_staff)) %>% 
+  filter(!(rdm_staff %in% c("data curators)", "directly linked to or embedded in a department/project)", "data librarians", "is the university's own at the moment.", "The project to set up the data repository that we have just started includes the hiring of a data curator. The rest of the staff", "The university also partly rely on data stewards that are connected to national infrastructures/competence centers."))) %>% 
+  mutate(rdm_staff = recode_factor(rdm_staff, "Data managers (e.g. research data managers" = "Data managers", "Infrastructure engineers and managers (e.g. data repository developer)" = " Infrastructure engineers \n and managers", "Dedicated data stewards (implementation and liaison role" = "Data stewards", "IT or librarian" = "IT or librarian, hiring of \n a data curator foreseen")) %>% 
+  mutate(policy_rdm_stand_alone = factor(policy_rdm_stand_alone, labels = c("Not available, \n currently not considered", "Under discussion", "Under development", "Available & Updated since Jan 2022", "Available"), levels = c("Not available, currently not considered", "Under discussion", "Under development", "Available & Updated since January 2022", "Available")))
+
+  
+standard_plot3(rdm_staff_tab_2024, rdm_staff, fill = policy_rdm_stand_alone, title = "RDM staff at ENLIGHT partner universities \n (with policy information)", m = 10, subtitle = "responses", caption = "") + guides(fill=guide_legend(title="RDM policy"))
+
+
+# rdm_actions    
+# What actions are currently taken for fostering skills and capacities for RDM and making data FAIR? (Multiple choice possible)
+
+rdm_actions_tab_2024 <- os_survey_2024 %>% 
+  select(Zeitstempel, rdm_actions, policy_rdm_stand_alone) %>% 
+    transform(rdm_actions = strsplit(rdm_actions, ",")) %>% 
+  unnest(rdm_actions)  %>% 
+  transform(rdm_actions = str_trim(rdm_actions, side = "both")) %>% 
+  as_tibble() %>% 
+  filter(!is.na(rdm_actions)) %>% 
+  mutate(rdm_actions = factor(rdm_actions)) %>% 
+  filter(!(rdm_actions %in% c("but on a limited level."))) %>% 
+  mutate(rdm_actions = recode_factor(rdm_actions, "Training for researchers exist" = "Training sessions for researchers", "Training courses for PHD students" = "Training courses for PhD students", "Embedding data managers/stewards in projects" = "Embedding data managers/\nstewards in projects", "Engagement in working groups (e.g. RDA)" = "Engagement in working groups", "Training for data managers and data stewards" = "Training for data managers \n and data stewards")) %>% 
+  mutate(policy_rdm_stand_alone = factor(policy_rdm_stand_alone, labels = c("Not available, \n currently not considered", "Under discussion", "Under development", "Available & Updated since Jan 2022", "Available"), levels = c("Not available, currently not considered", "Under discussion", "Under development", "Available & Updated since January 2022", "Available")))
+  
+standard_plot3(rdm_actions_tab_2024, rdm_actions, fill = policy_rdm_stand_alone, title = "Actions to foster RDM skills and capacity at ENLIGHT partner \n universities (with policy information)", m = 9, subtitle = "responses", caption = "") + guides(fill=guide_legend(title="RDM policy")) + scale_y_continuous(limits = c(0, 10), breaks = c(0, 5, 10))
+
+
+
+
+# fair_challenges
+os_survey_2024 %>% select(fair_challenges) %>% filter(!is.na(fair_challenges)) %>% unique()
+
 ```
 
-As already noted above 4 institutions have a RDM policy in place and for another four institution a policy is under development. The figure therefore covers information for both cases.
+As already noted above, 4 institutions have a RDM policy in place and for another four institution a policy is under development. The figure on RDM services covers information for both cases. For some figures we only consider those institutions who either have a policy in place or indicated their intent to include a certain measure (e.g. FAIR data).
 
 
 
